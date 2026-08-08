@@ -1,0 +1,19 @@
+// The blink example, as a package that depends on one — which is what makes this a test of the
+// package machinery and not only of the program.
+//
+// It is built by `sysl build-c` rather than `sysl build`, because the SDK's CMake owns the link.
+// That is `pico2`'s doing and is explained in its own manifest; nothing about the dependency itself
+// is unusual.
+
+package {
+  name    = "sysl-blink"
+  version = "0.1.0"
+}
+
+dependencies {
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.1.0" }
+}
+
+// **No `requires` block.** The program asks for no allocator and no operating system: it prints,
+// which is one function in the standard module rather than a capability, and everything else is a
+// call into the SDK's C.

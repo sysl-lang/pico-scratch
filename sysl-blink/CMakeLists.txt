@@ -24,13 +24,13 @@ add_custom_command(
     # `--no-std-lib` compiles the standard module's source into the archive. Without it the archive
     # is left referring to `sysl$prints` and friends, which nothing else provides, so a C project
     # cannot link it.
-    # `--lib` names the pico2 package's source root. Once that package is tagged and published this
-    # becomes a `dependencies` block in a `package.hocon` and the flag goes away; a sibling checkout
-    # is what works while the two are developed together.
+    # The board comes from the `pico2` package, declared in `blink/package.hocon` and fetched by
+    # coordinate — so there is no path to a sibling checkout here, and this builds from a fresh
+    # clone with nothing else present.
     COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding --no-std-lib
-            --lib ${CMAKE_CURRENT_SOURCE_DIR}/../../pico2 -o ${SYSL_ARCHIVE}
+            -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/blink/blink.sysl
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../pico2/sh/sysl/pico2/pico2.sysl
+            ${CMAKE_CURRENT_SOURCE_DIR}/blink/package.hocon
     COMMENT "Compiling the sysl module for thumbv8m.main"
     VERBATIM)
 
