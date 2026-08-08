@@ -40,11 +40,47 @@ not initialised, so the configure step warns that BLE is unavailable; that is ex
 
 ## Building
 
-    cd blink
+Either project, the same way — `cd blink` or `cd sysl-blink`:
+
     PICO_SDK_PATH=$HOME/dev/sysl-lang/pico/pico-sdk cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build build
 
-The artifact to flash is `build/blink.uf2`.
+The artifact to flash is `build/blink.uf2` or `build/sysl_blink.uf2`.
+
+## sysl on the board, with the SDK hosting it
+
+`sysl-blink/` is the same program written in sysl, and **it contains no C** — one `.sysl` file and a
+`CMakeLists.txt`. The SDK still supplies the board: the linker script, the vector table, the boot
+block, the clocks, and the `crt0` that calls `main`. sysl supplies `main`.
+
+    @export("main")
+    run() -> int =
+
+`@export` publishes a definition under a plain C symbol. It is also what makes the module reachable
+at all — a `sysl build-c` has no entry point of its own, so with nothing exported the whole module is
+pruned away, and the compiler warns rather than leaving you to discover it. `extern` is the same idea
+read the other way, and is how sysl reaches the board:
+
+    extern "sleep_ms" sleep_ms(ms: u32)
+    extern "cyw43_arch_gpio_put" cyw43_arch_gpio_put(wl_gpio: uint, on: bool)
+
+Printing needs no extern of its own: sysl's `print` reaches `putchar`, which the SDK has wired to the
+USB serial port. Only real symbols can be reached this way — much of the SDK's hardware API is
+`static inline` (45 functions in `hardware/gpio.h` alone) and would need a C shim.
+
+`CMakeLists.txt` runs the compiler itself, so `cmake --build` is the whole of it:
+
+    sysl build-c blink --target thumb-freestanding --no-std-lib -o libblink.a
+
+**Two flags there are load bearing**, and both are commented where they sit. `--no-std-lib` compiles
+the standard module's source into the archive; without it the archive refers to library code it does
+not contain and nothing can link it. And `PICO_HARD_FLOAT_ABI` is set before the SDK is imported,
+because sysl's only Cortex-M33 target passes floating-point arguments in VFP registers while the SDK
+defaults to `softfp` — and the linker refuses to merge the two even when no float crosses the
+boundary.
+
+Use `loop` rather than `while true` for a non-returning entry point. `loop` diverges, so `main` can
+be typed `-> int` with no unreachable `return` after it.
 
 ## Flashing
 
