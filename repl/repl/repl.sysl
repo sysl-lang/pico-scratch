@@ -71,6 +71,7 @@ eval(line: string) =
                     Err(_) -> print(s"'${word[1]}' is not a number")
 
         _ -> print(s"'${word[0]}' is not a command — try 'help'")
+end eval
 
 @export("main")
 run() -> int =
