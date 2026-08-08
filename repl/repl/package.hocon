@@ -6,7 +6,7 @@ package {
 }
 
 dependencies {
-  pico2 { git = "github.com/sysl-lang/pico2", version = "0.4.1" }
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.1" }
 }
 
 // **`alloc = true`, and it is the one thing separating this program from the blink example.**
