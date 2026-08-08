@@ -21,13 +21,10 @@ set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libblink.a)
 
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
-    # `--no-std-lib` compiles the standard module's source into the archive. Without it the archive
-    # is left referring to `sysl$prints` and friends, which nothing else provides, so a C project
-    # cannot link it.
     # The board comes from the `pico2` package, declared in `blink/package.hocon` and fetched by
     # coordinate — so there is no path to a sibling checkout here, and this builds from a fresh
     # clone with nothing else present.
-    COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding --no-std-lib
+    COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/blink/blink.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/blink/package.hocon

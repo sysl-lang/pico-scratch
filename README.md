@@ -1,12 +1,25 @@
 # Pico 2 W — C SDK scratch area
 
-Bare-metal C for a Raspberry Pi Pico 2 W (RP2350, Cortex-M33, CYW43439 wireless).
+Bare-metal C **and sysl** for a Raspberry Pi Pico 2 W (RP2350, Cortex-M33, CYW43439 wireless).
+
+It is a testbed rather than a component — the name says so on purpose. What it is for is finding out
+what sysl on real silicon actually needs, and it has been good at that: seven compiler and library
+tickets came out of writing the two sysl programs here, and all of them shipped.
 
 ## Layout
 
     pico-sdk/     the Raspberry Pi C SDK — NOT in this repo, see below
     blink/        C: onboard LED + a hello-world counter over USB serial
     sysl-blink/   the same thing in sysl, with the SDK hosting it
+    repl/         a REPL in sysl over the USB serial port, with line editing
+
+**`blink/` is kept deliberately.** It is the control: when something stops working, the question is
+always whether it is the board, the toolchain or sysl, and a C program that has never changed answers
+the first two in one build.
+
+Neither sysl program contains a line of C. The SDK supplies the board — the linker script, the vector
+table, the boot block, the clocks, the `crt0` that calls `main` — and
+[`sh.sysl.pico2`](https://github.com/sysl-lang/pico2) declares the entry points.
 
 ## Getting the SDK
 
@@ -70,14 +83,16 @@ USB serial port. Only real symbols can be reached this way — much of the SDK's
 
 `CMakeLists.txt` runs the compiler itself, so `cmake --build` is the whole of it:
 
-    sysl build-c blink --target thumb-freestanding --no-std-lib -o libblink.a
+    sysl build-c blink --target thumb-freestanding -o libblink.a
 
-**Two flags there are load bearing**, and both are commented where they sit. `--no-std-lib` compiles
-the standard module's source into the archive; without it the archive refers to library code it does
-not contain and nothing can link it. And `PICO_HARD_FLOAT_ABI` is set before the SDK is imported,
-because sysl's only Cortex-M33 target passes floating-point arguments in VFP registers while the SDK
-defaults to `softfp` — and the linker refuses to merge the two even when no float crosses the
-boundary.
+**One setting there is load bearing**, and it is commented where it sits: `PICO_HARD_FLOAT_ABI`, set
+before the SDK is imported. sysl's only Cortex-M33 target passes floating-point arguments in VFP
+registers while the SDK defaults to `softfp`, and the linker refuses to merge the two even when no
+float crosses the boundary.
+
+That command needed a `--no-std-lib` until **sysl 0.0.33**, because a `build-c` archive was left
+referring to library code it did not contain. That is what kept this repository private: its headline
+lesson would have been a compiler defect. The archive is self-contained now.
 
 Use `loop` rather than `while true` for a non-returning entry point. `loop` diverges, so `main` can
 be typed `-> int` with no unreachable `return` after it.

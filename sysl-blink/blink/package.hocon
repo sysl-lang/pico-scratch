@@ -11,7 +11,7 @@ package {
 }
 
 dependencies {
-  pico2 { git = "github.com/sysl-lang/pico2", version = "0.1.0" }
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.4" }
 }
 
 // **No `requires` block.** The program asks for no allocator and no operating system: it prints,

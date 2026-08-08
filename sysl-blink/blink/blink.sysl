@@ -8,6 +8,7 @@
 // newlib's, wired to the USB serial port.
 
 import sh.sysl.pico2.*
+import sysl.time.{Duration, millis}
 
 // Rendering a 64-bit number divides by ten, and a Cortex-M33 has no 64-bit divide instruction — so
 // printing this also checks that the ARM EABI helper the toolchain supplies is reachable.
@@ -25,11 +26,11 @@ fib(n: u32) -> long =
 
     a
 
-flash(on_ms: u32, off_ms: u32) =
+flash(on: Duration, off: Duration) =
     led(true)
-    sleep_ms(on_ms)
+    sleep(on)
     led(false)
-    sleep_ms(off_ms)
+    sleep(off)
 
 // The program's entry point, published under the plain C name the SDK's `crt0` branches to.
 // `@export` is what makes a bare `main` symbol rather than sysl's own decorated one, and it is also
@@ -49,7 +50,7 @@ run() -> int =
     var n: u32 = 0
 
     loop
-        flash(120, 120)
-        flash(120, 640)
+        flash(millis(120), millis(120))
+        flash(millis(120), millis(640))
         print(s"tick $n, fib($n) = ${fib(n)}")
         n += 1

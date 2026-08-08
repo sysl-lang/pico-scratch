@@ -86,7 +86,4 @@ run() -> int =
 
     loop
         prompt()
-
-        read_line() match
-            Ok(line) -> eval(line)
-            Err(_) -> print("that was not UTF-8")
+        eval(read_line())
