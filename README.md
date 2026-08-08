@@ -42,7 +42,7 @@ not initialised, so the configure step warns that BLE is unavailable; that is ex
 
 Either project, the same way — `cd blink` or `cd sysl-blink`:
 
-    PICO_SDK_PATH=$HOME/dev/sysl-lang/pico/pico-sdk cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+    PICO_SDK_PATH=$HOME/dev/sysl-lang/pico-scratch/pico-sdk cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build build
 
 The artifact to flash is `build/blink.uf2` or `build/sysl_blink.uf2`.
