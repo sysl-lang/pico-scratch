@@ -1,29 +1,13 @@
-// sysl on a Pico 2 W, hosted by the C SDK.
+// sysl on a Pico 2 W, hosted by the C SDK, with the board itself coming from a package.
 //
-// The SDK supplies the board — the linker script, the vector table, the boot block, the clocks —
-// and `main.c` does nothing but call in here. Bringing the peripherals up is sysl's, because the
-// SDK entry points for it are ordinary symbols like any other. The two directions across the
-// boundary are both here: `extern` names a symbol the linker already has, and `@export` publishes
-// one under a plain C name, which is how C gets in.
+// There is no C in this project at all. The SDK supplies the board — the linker script, the vector
+// table, the boot block, the clocks, and the `crt0` that calls `main` — and `sh.sysl.pico2` declares
+// the entry points, so everything below is sysl.
 //
-// Printing needs no extern of its own. sysl's `print` reaches `putchar`, and under the SDK that is
-// newlib's, wired to the USB serial port — so a `print` here arrives on the host's terminal.
+// Printing needs nothing declared here: sysl's `print` reaches `putchar`, and under the SDK that is
+// newlib's, wired to the USB serial port.
 
-// pico-sdk, `pico/stdio.h`. Brings up whichever stdio the build selected — here USB CDC.
-extern "stdio_init_all" stdio_init_all() -> bool
-
-// pico-sdk, `pico/cyw43_arch.h`. Answers non-zero on failure.
-extern "cyw43_arch_init" cyw43_arch_init() -> int
-
-// pico-sdk, `pico/time.h`.
-extern "sleep_ms" sleep_ms(ms: u32)
-
-// pico-sdk, `pico/cyw43_arch.h`. On a Pico 2 W the LED hangs off the CYW43439 rather than off an
-// RP2350 pin, so it is reached through the wireless driver and not with a GPIO write.
-extern "cyw43_arch_gpio_put" cyw43_arch_gpio_put(wl_gpio: uint, on: bool)
-
-// `CYW43_WL_GPIO_LED_PIN` from the board's own header.
-const led_pin: uint = 0
+import sh.sysl.pico2.*
 
 // Rendering a 64-bit number divides by ten, and a Cortex-M33 has no 64-bit divide instruction — so
 // printing this also checks that the ARM EABI helper the toolchain supplies is reachable.
@@ -42,24 +26,22 @@ fib(n: u32) -> long =
     a
 
 flash(on_ms: u32, off_ms: u32) =
-    cyw43_arch_gpio_put(led_pin, true)
+    led(true)
     sleep_ms(on_ms)
-    cyw43_arch_gpio_put(led_pin, false)
+    led(false)
     sleep_ms(off_ms)
 
-// The program's entry point, published under the plain C name the SDK's `crt0` branches to. There
-// is no C in this project at all: `@export` is what makes a bare `main` symbol rather than sysl's
-// own decorated one, and it is also the reachability root — a `build-c` has no entry point of its
-// own, so without an export the whole module prunes away and the compiler says so.
+// The program's entry point, published under the plain C name the SDK's `crt0` branches to.
+// `@export` is what makes a bare `main` symbol rather than sysl's own decorated one, and it is also
+// the reachability root — a `build-c` has no entry point of its own, so without an export the whole
+// module prunes away and the compiler says so.
 //
 // The `int` costs nothing because `loop` diverges: the body never falls off the end, so there is no
 // unreachable `return 0` to write, and `crt0` gets the honest signature rather than `void main`.
 @export("main")
 run() -> int =
-    stdio_init_all()
-
-    if cyw43_arch_init() != 0
-        print("cyw43_arch_init failed")
+    if !init()
+        print("the wireless chip did not start")
         return 1
 
     print("hello from sysl, running on an RP2350")
