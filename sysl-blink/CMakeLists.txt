@@ -32,12 +32,15 @@ add_custom_command(
 
 add_custom_target(sysl_archive DEPENDS ${SYSL_ARCHIVE})
 
-add_executable(sysl_blink main.c)
+# There is no C in this project at all. sysl exports `main` itself, so the SDK's `crt0` branches
+# straight into it. CMake accepts the archive in the source list and hands it to the linker, which
+# satisfies its "a target must have sources" rule without inventing a placeholder file — and with no
+# C translation unit there is no language for it to infer, hence `LINKER_LANGUAGE`.
+add_executable(sysl_blink ${SYSL_ARCHIVE})
+
+set_target_properties(sysl_blink PROPERTIES LINKER_LANGUAGE C)
 
 add_dependencies(sysl_blink sysl_archive)
-
-# The generated header lands beside the archive in the build directory.
-target_include_directories(sysl_blink PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(sysl_blink pico_stdlib pico_cyw43_arch_none ${SYSL_ARCHIVE})
 
