@@ -1,0 +1,91 @@
+// A REPL on the Pico 2 W, over the USB serial port.
+//
+// The point of this one is *input*, which nothing else here touches — and input turned out to be
+// where a board stops resembling a hosted machine.
+//
+// **`sysl.io`'s line cursor is the wrong tool for a console.** It splits on `\n`, which is right for
+// a pipe and wrong for a terminal: `screen` sends a bare `\r` when Enter is pressed, so a program
+// reading lines that way waits forever and looks dead. It was tried first and did exactly that —
+// three commands arrived as the single line `help\rhelp\rhelp`. `pico2.read_line` takes CR, LF or
+// CRLF instead, which is what a serial console has always had to do.
+//
+// **And a board prints into nowhere until a host attaches**, because the SDK discards stdio output
+// with no reader — so the banner is written after `wait_for_terminal`, not before.
+//
+// It allocates, and says so: `read_line` grows the line as it is typed, and `split` answers a
+// `[]string`. The heap is newlib's, which the SDK links, so it is there whether or not this program
+// uses it — but `package.hocon` still declares `alloc = true`, because that is a claim about what
+// the code does rather than a request for something to exist.
+
+import sh.sysl.pico2.*
+import sysl.text.{split, parse_int}
+
+prompt() = prints("sysl> ")
+
+help() =
+    print("  led on | led off    the onboard LED, which is on the wireless chip")
+    print("  fib N               the Nth Fibonacci number, as 64-bit arithmetic")
+    print("  usb                 whether the board is running on USB power")
+    print("  help                this")
+
+fib(n: int) -> long =
+    var a: long = 0
+    var b: long = 1
+    var i = 0
+
+    while i < n
+        val next = a + b
+
+        a = b
+        b = next
+        i += 1
+
+    a
+
+// The E in REPL: answers the one line given, and says so when it cannot.
+eval(line: string) =
+    val word = split(line, " ")
+
+    if word.len == 0 then return
+
+    word[0] match
+        "" -> return
+        "help" -> help()
+        "usb" -> print(if on_usb_power() then "on USB power" else "on its own supply")
+
+        "led" ->
+            if word.len != 2
+                print("led needs 'on' or 'off'")
+            else
+                word[1] match
+                    "on" -> led(true)
+                    "off" -> led(false)
+                    _ -> print(s"led does not understand '${word[1]}'")
+
+        "fib" ->
+            if word.len != 2
+                print("fib needs a number")
+            else
+                parse_int(word[1]) match
+                    Ok(n) -> print(s"fib($n) = ${fib(n)}")
+                    Err(_) -> print(s"'${word[1]}' is not a number")
+
+        _ -> print(s"'${word[0]}' is not a command — try 'help'")
+
+@export("main")
+run() -> int =
+    if !init()
+        print("the wireless chip did not start")
+        return 1
+
+    wait_for_terminal()
+
+    print("sysl on a Raspberry Pi Pico 2 W. Type 'help'.")
+    print("")
+
+    loop
+        prompt()
+
+        read_line() match
+            Ok(line) -> eval(line)
+            Err(_) -> print("that was not UTF-8")

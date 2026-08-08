@@ -1,0 +1,23 @@
+// A REPL over the board's USB serial port.
+
+package {
+  name    = "repl"
+  version = "0.1.0"
+}
+
+dependencies {
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.4.0" }
+}
+
+// **`alloc = true`, and it is the one thing separating this program from the blink example.**
+//
+// Reading the line does *not* need it: `pico2.read_line` fills a buffer the caller owns. What needs
+// it is picking the line apart — `split` answers a `[]string`, which is an allocation for the slice
+// and one per word, and `from_utf8` makes a `string`. A microcontroller has no allocator of its own;
+// this one is newlib's, which the SDK links, so the capability is honest rather than free.
+//
+// A genuinely allocation-free REPL is reachable — compare the input as bytes and parse the number by
+// hand — and is what a target without a heap would need.
+requires {
+  alloc = true
+}
