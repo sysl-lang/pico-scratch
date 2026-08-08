@@ -1,12 +1,19 @@
 // sysl on a Pico 2 W, hosted by the C SDK.
 //
-// `main.c` brings the board up — clocks, USB, the wireless chip — and then hands over. From that
-// point the program is sysl's. The two directions across the boundary are both here: `extern` names
-// a symbol the linker already has, which is how sysl reaches the board, and `@export` publishes one
-// under a plain C name, which is how C gets in.
+// The SDK supplies the board — the linker script, the vector table, the boot block, the clocks —
+// and `main.c` does nothing but call in here. Bringing the peripherals up is sysl's, because the
+// SDK entry points for it are ordinary symbols like any other. The two directions across the
+// boundary are both here: `extern` names a symbol the linker already has, and `@export` publishes
+// one under a plain C name, which is how C gets in.
 //
 // Printing needs no extern of its own. sysl's `print` reaches `putchar`, and under the SDK that is
 // newlib's, wired to the USB serial port — so a `print` here arrives on the host's terminal.
+
+// pico-sdk, `pico/stdio.h`. Brings up whichever stdio the build selected — here USB CDC.
+extern "stdio_init_all" stdio_init_all() -> bool
+
+// pico-sdk, `pico/cyw43_arch.h`. Answers non-zero on failure.
+extern "cyw43_arch_init" cyw43_arch_init() -> int
 
 // pico-sdk, `pico/time.h`.
 extern "sleep_ms" sleep_ms(ms: u32)
@@ -43,6 +50,12 @@ flash(on_ms: u32, off_ms: u32) =
 // The whole program as C sees it: one symbol, which never returns.
 @export("sysl_run")
 run() =
+    stdio_init_all()
+
+    if cyw43_arch_init() != 0
+        print("cyw43_arch_init failed")
+        return
+
     print("hello from sysl, running on an RP2350")
 
     var n: u32 = 0
