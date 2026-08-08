@@ -1,0 +1,12 @@
+# The SDK is a clone of somebody else's repository, 81 MB of it, and every checkout can fetch its
+# own. README.md has the command and the submodules it needs.
+pico-sdk/
+
+# CMake and ninja output, including the archive and header `sysl build-c` writes.
+build/
+
+# `sysl build-c` output, if it is ever run by hand outside the build directory.
+*.a
+*.a.h
+
+.idea/

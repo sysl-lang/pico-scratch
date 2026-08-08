@@ -1,0 +1,54 @@
+// sysl on a Pico 2 W, hosted by the C SDK.
+//
+// `main.c` brings the board up — clocks, USB, the wireless chip — and then hands over. From that
+// point the program is sysl's. The two directions across the boundary are both here: `extern` names
+// a symbol the linker already has, which is how sysl reaches the board, and `@export` publishes one
+// under a plain C name, which is how C gets in.
+//
+// Printing needs no extern of its own. sysl's `print` reaches `putchar`, and under the SDK that is
+// newlib's, wired to the USB serial port — so a `print` here arrives on the host's terminal.
+
+// pico-sdk, `pico/time.h`.
+extern "sleep_ms" sleep_ms(ms: u32)
+
+// pico-sdk, `pico/cyw43_arch.h`. On a Pico 2 W the LED hangs off the CYW43439 rather than off an
+// RP2350 pin, so it is reached through the wireless driver and not with a GPIO write.
+extern "cyw43_arch_gpio_put" cyw43_arch_gpio_put(wl_gpio: uint, on: bool)
+
+// `CYW43_WL_GPIO_LED_PIN` from the board's own header.
+const led_pin: uint = 0
+
+// Rendering a 64-bit number divides by ten, and a Cortex-M33 has no 64-bit divide instruction — so
+// printing this also checks that the ARM EABI helper the toolchain supplies is reachable.
+fib(n: u32) -> long =
+    var a: long = 0
+    var b: long = 1
+    var i: u32 = 0
+
+    while i < n
+        val next = a + b
+
+        a = b
+        b = next
+        i += 1
+
+    a
+
+flash(on_ms: u32, off_ms: u32) =
+    cyw43_arch_gpio_put(led_pin, true)
+    sleep_ms(on_ms)
+    cyw43_arch_gpio_put(led_pin, false)
+    sleep_ms(off_ms)
+
+// The whole program as C sees it: one symbol, which never returns.
+@export("sysl_run")
+run() =
+    print("hello from sysl, running on an RP2350")
+
+    var n: u32 = 0
+
+    while true
+        flash(120, 120)
+        flash(120, 640)
+        print(s"tick $n, fib($n) = ${fib(n)}")
+        n += 1
