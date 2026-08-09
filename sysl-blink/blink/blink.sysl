@@ -15,11 +15,9 @@ import sysl.time.{Duration, millis}
 fib(n: u32) -> long =
     var a: long = 0
     var b: long = 1
-    var i: u32 = 0
 
-    while i < n
+    for _ in 0..<n
         a, b = b, a + b
-        i += 1
 
     a
 
