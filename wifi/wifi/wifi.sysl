@@ -14,9 +14,10 @@
 // **A successful `join` means there is a DHCP lease**, not merely that the radio associated. That is
 // the SDK's definition of link-up and it is the useful one: the board is on the network.
 //
-// What this cannot do yet is *use* the connection. Reading back the address, or opening a socket,
-// means reaching into lwIP's own structures, and `sh.sysl.pico2` does not go there — see the package
-// for where that line is drawn.
+// **`ip` reads that lease back**, which is what makes the join checkable from the other end: the
+// board can be pinged from the laptop the moment it prints an address, since lwIP answers ICMP with
+// no code here at all. What is still missing is *using* the connection — opening a socket, or
+// fetching something — and see `sh.sysl.pico2` for where that line currently sits.
 
 import sh.sysl.pico2.*
 import sysl.text.split
@@ -29,6 +30,7 @@ help() =
     print("  join SSID PASSWORD   join a WPA2 network")
     print("  open SSID            join a network that has no password")
     print("  ap SSID PASSWORD     become an access point instead")
+    print("  ip                   the address the board is answering on")
     print("  leave                leave the network")
     print("  country              the regulatory country the radio is set to")
     print("  led on | led off     the onboard LED, which is on the wireless chip")
@@ -68,6 +70,31 @@ list_networks() =
         print("  ...and more than there was room for")
 end list_networks
 
+// Where the board is on the network — **the command that makes a join checkable from somewhere other
+// than this prompt.** `joined` is a claim; an address is something to ping.
+//
+// The link is printed whether or not there is an address, because it is what says which kind of
+// nothing an absent address is: a lease still on its way, or no connection to have asked for one.
+show_address() =
+    print(s"  link    ${link()}")
+
+    ip() match
+        Some(a) ->
+            print(s"  address $a")
+            named("netmask", netmask())
+            named("gateway", gateway())
+
+        None -> print("  no address — 'join' first, and give it a moment")
+end show_address
+
+// A line that is only printed when there is something on it. The netmask and the gateway arrive as
+// `Option` for the same reason the address does, and neither is worth a line saying it is missing —
+// an address without them is the interesting case, and it says so by their absence.
+private named(label: string, value: Option[Ipv4]) =
+    value match
+        Some(v) -> print(s"  $label $v")
+        None -> ()
+
 // The one place a join's outcome is turned into words.
 //
 // `JoinError` renders itself, so this says what happened and lets the error say why.
@@ -86,6 +113,7 @@ eval(line: string) =
         "help" -> help()
         "list" -> list_networks()
         "country" -> print(s"the radio is set to ${country()}")
+        "ip" -> show_address()
         "leave" ->
             leave()
             print("left the network")
