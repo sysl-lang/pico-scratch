@@ -19,11 +19,11 @@ set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libogol.a)
 # costs the same thing: this project does not build from a fresh clone.
 #
 # The *board* is here by `--lib` for a different reason, and it is a compiler defect rather than a
-# choice — card `0053`. A `--lib` source root binding a top-level name silently shadows the
+# choice — card `0055`. A `--lib` source root binding a top-level name silently shadows the
 # sub-modules of a **coordinate** dependency binding the same one, and every package in this org binds
 # `sh`. So `--lib ogol` beside `pico2 { git = … }` reports `no module is called
 # 'sh.sysl.pico2.externs'`, pointing inside the cached package, while two `--lib` roots resolve
-# perfectly. Restore the coordinate in `ogol/package.hocon` and drop the second `--lib` when 0053 is
+# perfectly. Restore the coordinate in `ogol/package.hocon` and drop the second `--lib` when 0055 is
 # fixed.
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h

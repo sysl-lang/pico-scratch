@@ -11,11 +11,11 @@ package {
 // `--lib` from the checkout beside this one -- the same arrangement `wifi/` has with the unreleased
 // half of `pico2`, and the same cost, which is that this project does not build from a fresh clone.
 //
-// `sh.sysl.pico2` *was* a coordinate and had to stop being one, which is card `0053`: a `--lib` root
+// `sh.sysl.pico2` *was* a coordinate and had to stop being one, which is card `0055`: a `--lib` root
 // shadows the sub-modules of a coordinate dependency that binds the same top-level name, and every
 // package in this org binds `sh`. The two together reported `no module is called
 // 'sh.sysl.pico2.externs'` from inside the cached package. Two `--lib` roots resolve fine, so that is
-// what `CMakeLists.txt` passes. Put the block back when 0053 is fixed:
+// what `CMakeLists.txt` passes. Put the block back when 0055 is fixed:
 //
 //     dependencies {
 //       pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.4" }
