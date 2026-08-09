@@ -18,10 +18,15 @@
 // board can be pinged from the laptop the moment it prints an address, since lwIP answers ICMP with
 // no code here at all.
 //
-// **`resolve` is where the connection starts being used rather than described.** A name coming back
-// means a query left the board, reached the server the lease named, and was answered — which is a
-// stronger claim than an address is. What is still missing is a *conversation*: opening a socket, or
-// fetching something, and see `sh.sysl.pico2` for where that line currently sits.
+// **`resolve` is where the connection starts being used rather than described**, and **`get` is
+// where it carries a conversation.** A name coming back means a query left the board and was
+// answered; a document coming back over `https` means rather more than that — a TCP connection, a
+// TLS handshake against a certificate authority compiled into this image, an HTTP request and a
+// response, all on a microcontroller with no operating system under it.
+//
+// **The TLS is the project's, not the package's.** `sh.sysl.pico2` declares the fetch and this
+// project's `CMakeLists.txt` links mbedtls; `pico2_mbedtls_config.h` beside it is what that library
+// is configured with, and it is the application's file in the way `lwipopts.h` is.
 
 import sh.sysl.pico2.*
 import sysl.text.split
@@ -36,6 +41,7 @@ help() =
     print("  ap SSID PASSWORD     become an access point instead")
     print("  ip                   the address the board is answering on")
     print("  resolve NAME         look a host name up, which needs a join first")
+    print("  get URL              fetch a document over http or https")
     print("  leave                leave the network")
     print("  country              the regulatory country the radio is set to")
     print("  led on | led off     the onboard LED, which is on the wireless chip")
@@ -115,6 +121,32 @@ look_up(name: string) =
         Ok(a) -> print(s"  $name is $a")
         Err(e) -> print(s"  could not resolve $name — $e")
 
+// **The whole point of the radio, in one command.** Everything else here establishes that the board
+// is on a network; this uses the network for what a network is for.
+//
+// **`https` works and is the interesting half**, which on a microcontroller means a real TLS
+// handshake against a real certificate authority — the board carries two roots and checks the
+// server's chain against them, so a host it cannot verify is refused rather than trusted. Expect a
+// second or two of silence while that happens.
+//
+// The body is printed as it arrived, so a document with no newlines in it comes out as one long
+// line. Nothing here formats it: this is a fetch, not a browser.
+fetch_url(url: string) =
+    print(s"fetching $url...")
+
+    fetch(url, 20.s) match
+        Ok(r) ->
+            print(s"  ${r.status}, ${r.body.len} bytes")
+            print("")
+            print(r.body)
+
+            if r.truncated
+                print("")
+                print("  ...and more than there was room for")
+
+        Err(e) -> print(s"  could not fetch $url — $e")
+end fetch_url
+
 // The one place a join's outcome is turned into words.
 //
 // `JoinError` renders itself, so this says what happened and lets the error say why.
@@ -137,6 +169,9 @@ eval(line: string) =
 
         "resolve" if word.len != 2 -> print("resolve needs a host name")
         "resolve" -> look_up(word[1])
+
+        "get" if word.len != 2 -> print("get needs a URL")
+        "get" -> fetch_url(word[1])
 
         "leave" ->
             leave()

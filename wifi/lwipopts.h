@@ -28,6 +28,24 @@
 #define LWIP_ICMP                   1
 #define LWIP_DNS                    1
 
+// ## TLS
+//
+// **`altcp` is an indirection over TCP, and it is what makes an https fetch a configuration change
+// rather than a second HTTP client.** lwIP's `http_client.c` opens its connection through
+// `altcp_new(settings->altcp_allocator)`; hand it an allocator that makes TLS connections and the
+// same client speaks https. With the field left null it makes a plain one, so both schemes come out
+// of one binary and one code path.
+#define LWIP_ALTCP                  1
+#define LWIP_ALTCP_TLS              1
+#define LWIP_ALTCP_TLS_MBEDTLS      1
+
+// **lwIP's default here is `MBEDTLS_SSL_VERIFY_OPTIONAL`, which is a trap.** Optional means the
+// certificate is checked, the result is recorded, and the handshake proceeds either way — so a
+// server presenting a certificate signed by nobody is connected to exactly as one presenting a good
+// certificate, and the connection looks encrypted while authenticating nothing. Requiring it is what
+// makes the built-in roots mean something.
+#define ALTCP_MBEDTLS_AUTHMODE      MBEDTLS_SSL_VERIFY_REQUIRED
+
 // The driver asks to be told when the interface goes up or down.
 #define LWIP_NETIF_STATUS_CALLBACK  1
 #define LWIP_NETIF_LINK_CALLBACK    1
@@ -38,12 +56,17 @@
 // what is actually happening.
 #define LWIP_CHKSUM_ALGORITHM       3
 
-// Pool sizes. These are the SDK examples' numbers, which are sized for a couple of connections on a
-// board with 520 KB of SRAM. Nothing here is tuned; if a future program runs out of pbufs, this is
-// the file to look in.
+// Pool sizes. These started as the SDK examples' numbers, sized for a couple of connections on a
+// board with 520 KB of SRAM. If a future program runs out of pbufs, this is the file to look in.
+//
+// **`MEM_SIZE` was 4000 until TLS arrived**, which is comfortable for DHCP and a name lookup and is
+// not for a TLS record. A single incoming record may be 16 KB and lwIP has to hold the pieces of it
+// while `altcp_tls` reassembles them; `http_client.c` also takes its per-request state from this
+// heap. mbedtls's own buffers are *not* in here — those come off the C heap, which newlib grows into
+// the SRAM this does not claim.
 #define MEM_LIBC_MALLOC             0
 #define MEM_ALIGNMENT               4
-#define MEM_SIZE                    4000
+#define MEM_SIZE                    16000
 #define MEMP_NUM_TCP_SEG            32
 #define MEMP_NUM_ARP_QUEUE          10
 #define PBUF_POOL_SIZE              24

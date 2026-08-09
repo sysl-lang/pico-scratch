@@ -14,6 +14,12 @@ include(pico_sdk_import.cmake)
 
 project(sysl_wifi C CXX ASM)
 
+# **mbedtls's configuration is named before the SDK is initialised, because that is when the SDK
+# decides it.** `pico_mbedtls`'s own CMakeLists reads this variable while `pico_sdk_init()` is
+# walking its subdirectories; setting it afterwards is silently too late and the build gets mbedtls's
+# stock configuration, which wants a filesystem and `/dev/urandom`.
+set(PICO_MBEDTLS_CONFIG_FILE "pico2_mbedtls_config.h")
+
 pico_sdk_init()
 
 # `lwipopts.h` is the application's to supply, and the SDK's own lwIP sources include it — so it has
@@ -110,10 +116,36 @@ add_dependencies(sysl_wifi sysl_archive)
 # stack linked, the radio associates and nothing can ever report it, so the join always times out.
 # The *background* variant rather than `..._poll` because this program blocks inside `read_line` for
 # nearly all of its life, and the polling variant would run the driver only between keystrokes.
+#
+# **The three TLS lines are what an https fetch costs at this level, and nothing else changes.**
+# `pico_lwip_http` is lwIP's own HTTP client; `pico_mbedtls` builds mbedtls and wires it to this chip
+# — entropy from the RP2350's true random number generator, which is the part that is usually hard on
+# a microcontroller; `pico_lwip_mbedtls` is the `altcp_tls` layer that joins them, and the SDK
+# substitutes its own patched copy of it because lwIP's is incompatible with mbedtls 3.x.
+#
+# Adding these also puts the mbedtls headers into `sysl_wifi`'s transitive include list, which is
+# where `SYSL_C_INCLUDES` above reads from — so `http.c` in the `--lib` tree can include them with no
+# further arrangement.
 target_link_libraries(sysl_wifi
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
+    pico_lwip_http
+    pico_lwip_mbedtls
+    pico_mbedtls
     ${SYSL_ARCHIVE})
+
+# **The SDK's mbedtls source list is a version behind the mbedtls it pins.** `pico_mbedtls`'s own
+# CMakeLists says it supports "2.28.8 or 3.6.2", and SDK 2.3.0's submodule is at **3.6.6** — where
+# PSA's random-number plumbing has moved into a file of its own that the list does not name. The
+# symptom is a link failure in `psa_crypto.c` on `psa_random_internal_generate`, `..._init`,
+# `..._seed` and `..._free`, which reads like a configuration problem and is a missing translation
+# unit.
+#
+# Adding it here rather than editing the SDK keeps the SDK a stock checkout. Guarded on the file
+# existing, so an older mbedtls that has those functions elsewhere still builds.
+if (EXISTS ${PICO_SDK_PATH}/lib/mbedtls/library/psa_crypto_random.c)
+    target_sources(sysl_wifi PRIVATE ${PICO_SDK_PATH}/lib/mbedtls/library/psa_crypto_random.c)
+endif()
 
 pico_enable_stdio_usb(sysl_wifi 1)
 pico_enable_stdio_uart(sysl_wifi 0)
