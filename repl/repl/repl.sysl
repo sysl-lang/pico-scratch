@@ -48,22 +48,18 @@ eval(line: string) =
         "help" -> help()
         "usb" -> print(if on_usb_power() then "on USB power" else "on its own supply")
 
+        "led" if word.len != 2 -> print("led needs 'on' or 'off'")
         "led" ->
-            if word.len != 2
-                print("led needs 'on' or 'off'")
-            else
-                word[1] match
-                    "on" -> led(true)
-                    "off" -> led(false)
-                    _ -> print(s"led does not understand '${word[1]}'")
+            word[1] match
+                "on" -> led(true)
+                "off" -> led(false)
+                _ -> print(s"led does not understand '${word[1]}'")
 
+        "fib" if word.len != 2 -> print("fib needs a number")
         "fib" ->
-            if word.len != 2
-                print("fib needs a number")
-            else
-                parse_int(word[1]) match
-                    Ok(n) -> print(s"fib($n) = ${fib(n)}")
-                    Err(_) -> print(s"'${word[1]}' is not a number")
+            parse_int(word[1]) match
+                Ok(n) -> print(s"fib($n) = ${fib(n)}")
+                Err(_) -> print(s"'${word[1]}' is not a number")
 
         _ -> print(s"'${word[0]}' is not a command — try 'help'")
 end eval
