@@ -34,10 +34,7 @@ fib(n: int) -> long =
     var i = 0
 
     while i < n
-        val next = a + b
-
-        a = b
-        b = next
+        a, b = b, a + b
         i += 1
 
     a
