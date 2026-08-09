@@ -16,8 +16,12 @@
 //
 // **`ip` reads that lease back**, which is what makes the join checkable from the other end: the
 // board can be pinged from the laptop the moment it prints an address, since lwIP answers ICMP with
-// no code here at all. What is still missing is *using* the connection — opening a socket, or
-// fetching something — and see `sh.sysl.pico2` for where that line currently sits.
+// no code here at all.
+//
+// **`resolve` is where the connection starts being used rather than described.** A name coming back
+// means a query left the board, reached the server the lease named, and was answered — which is a
+// stronger claim than an address is. What is still missing is a *conversation*: opening a socket, or
+// fetching something, and see `sh.sysl.pico2` for where that line currently sits.
 
 import sh.sysl.pico2.*
 import sysl.text.split
@@ -31,6 +35,7 @@ help() =
     print("  open SSID            join a network that has no password")
     print("  ap SSID PASSWORD     become an access point instead")
     print("  ip                   the address the board is answering on")
+    print("  resolve NAME         look a host name up, which needs a join first")
     print("  leave                leave the network")
     print("  country              the regulatory country the radio is set to")
     print("  led on | led off     the onboard LED, which is on the wireless chip")
@@ -95,6 +100,21 @@ private named(label: string, value: Option[Ipv4]) =
         Some(v) -> print(s"  $label $v")
         None -> ()
 
+// **The first command that makes the board originate traffic.** Everything else here asks the radio
+// or the interface about itself; this one sends a query to the server the DHCP lease named and waits
+// for a reply, so a name coming back is proof the connection carries packets in both directions.
+//
+// **One address, even for a name that has several.** lwIP's resolver keeps the first A record and
+// drops the rest, so this is deliberately not a list — `sh.sysl.pico2` says so where `resolve` is
+// defined, and getting the whole set means sending a query rather than asking the resolver.
+//
+// The pause is worth announcing for the reason `list`'s is: with no cached answer the prompt goes
+// quiet for a moment, and a REPL that goes quiet looks wedged.
+look_up(name: string) =
+    resolve(name, 6.s) match
+        Ok(a) -> print(s"  $name is $a")
+        Err(e) -> print(s"  could not resolve $name — $e")
+
 // The one place a join's outcome is turned into words.
 //
 // `JoinError` renders itself, so this says what happened and lets the error say why.
@@ -114,6 +134,10 @@ eval(line: string) =
         "list" -> list_networks()
         "country" -> print(s"the radio is set to ${country()}")
         "ip" -> show_address()
+
+        "resolve" if word.len != 2 -> print("resolve needs a host name")
+        "resolve" -> look_up(word[1])
+
         "leave" ->
             leave()
             print("left the network")
