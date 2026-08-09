@@ -1,0 +1,30 @@
+// Ogol on the board — the language over the USB serial port.
+
+package {
+  name    = "ogol-pico"
+  version = "0.1.0"
+}
+
+// **There is no `dependencies` block, and its absence is two separate stories.**
+//
+// `sh.sysl.ogol` could not be a coordinate: `sysl-lang/ogol` is not tagged yet, so it arrives by
+// `--lib` from the checkout beside this one -- the same arrangement `wifi/` has with the unreleased
+// half of `pico2`, and the same cost, which is that this project does not build from a fresh clone.
+//
+// `sh.sysl.pico2` *was* a coordinate and had to stop being one, which is card `0053`: a `--lib` root
+// shadows the sub-modules of a coordinate dependency that binds the same top-level name, and every
+// package in this org binds `sh`. The two together reported `no module is called
+// 'sh.sysl.pico2.externs'` from inside the cached package. Two `--lib` roots resolve fine, so that is
+// what `CMakeLists.txt` passes. Put the block back when 0053 is fixed:
+//
+//     dependencies {
+//       pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.4" }
+//     }
+
+// The heap is the language's, not this program's. An interpreter grows a token list, a tree and a
+// dictionary as the person at the keyboard decides how big they should be, and the sizes of all three
+// are what a `Buf` exists to not have to guess. The SDK links newlib's allocator whether or not a
+// program touches it, so what this declares is honest rather than expensive.
+requires {
+  alloc = true
+}

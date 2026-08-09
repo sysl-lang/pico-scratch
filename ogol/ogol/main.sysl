@@ -1,0 +1,49 @@
+// Ogol on a Raspberry Pi Pico 2 W, over the USB serial port.
+//
+// **This is the same twenty lines as the desktop console, with one line different**: the board reads
+// through `pico2.read_line` rather than through `sysl.io`, because a serial terminal sends a bare `\r`
+// when Enter is pressed and needs an echo the host will not supply. Everything else — holding an
+// unfinished line, printing what came back, echoing a value and not an absence — is the language's
+// own, and is identical on both.
+//
+// That the difference is one line is the point of the split. The language is developed on a desktop,
+// where a test suite runs in fifty milliseconds, and shipped here.
+
+import sh.sysl.pico2.*
+import sh.sysl.ogol.*
+
+@export("main")
+boot() -> int =
+    if !init()
+        print("the board did not start")
+        return 1
+
+    // A board prints into nowhere until a host attaches, because the SDK discards stdio output with
+    // no reader — so the banner is written after this and not before.
+    wait_for_terminal()
+
+    print("Ogol on a Raspberry Pi Pico 2 W. Type a line.")
+    print("")
+
+    var interp = ogol()
+
+    // What has been typed and not yet run, because it was not finished.
+    var pending = ""
+
+    loop
+        prints(if pending == "" then "ogol> " else ".... ")
+
+        var src = if pending == "" then read_line() else pending + "\n" + read_line()
+
+        pending = ""
+
+        run(interp, src) match
+            Ok(v) ->
+                v match
+                    Nothing -> ()
+                    _ -> print(render(v))
+            Err(f) ->
+                f match
+                    More -> pending = src
+                    Bad(message) -> print(message)
+end boot
