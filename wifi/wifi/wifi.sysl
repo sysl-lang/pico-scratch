@@ -1,0 +1,105 @@
+// Wi-Fi on the Pico 2 W, driven from the USB serial port.
+//
+// The point of this one is the *radio*, which nothing else here touches. It is the `repl/` shape with
+// a different command set, deliberately: the line editor, the CR/LF handling and the banner were all
+// settled there, so what is left on screen is the part that is new.
+//
+// **This links `pico_cyw43_arch_lwip_threadsafe_background`, where `repl/` links
+// `pico_cyw43_arch_none`.** Two reasons, and the first is not optional: joining waits for the link to
+// come *up*, which is a question only lwIP can answer, so with no stack linked the radio associates
+// and nothing is ever able to report it. The second is why the *background* variant rather than the
+// polling one — this program spends nearly all of its life blocked inside `read_line`, and the
+// polling variant would run the driver only between keystrokes.
+//
+// **A successful `join` means there is a DHCP lease**, not merely that the radio associated. That is
+// the SDK's definition of link-up and it is the useful one: the board is on the network.
+//
+// What this cannot do yet is *use* the connection. Reading back the address, or opening a socket,
+// means reaching into lwIP's own structures, and `sh.sysl.pico2` does not go there — see the package
+// for where that line is drawn.
+
+import sh.sysl.pico2.*
+import sysl.text.split
+import sysl.time.{Duration, seconds}
+
+prompt() = prints("wifi> ")
+
+help() =
+    print("  join SSID PASSWORD   join a WPA2 network")
+    print("  open SSID            join a network that has no password")
+    print("  ap SSID PASSWORD     become an access point instead")
+    print("  leave                leave the network")
+    print("  country              the regulatory country the radio is set to")
+    print("  led on | led off     the onboard LED, which is on the wireless chip")
+    print("  help                 this")
+
+// How long to wait before giving up on a join.
+//
+// **Twenty seconds is long, and it has to be.** A join is an association, a four-way handshake and a
+// DHCP exchange, and a router that is busy can take most of that. A short timeout here reports a
+// working network as broken, which is the worst answer available.
+// A function rather than a `const`, because `seconds(20)` is a call and a `const` must be something
+// the compiler can fold. A module `val` would also work and would be storage this does not need.
+private join_wait() -> Duration = seconds(20)
+
+// The one place a join's outcome is turned into words.
+//
+// `JoinError` renders itself, so this says what happened and lets the error say why.
+report(what: string, outcome: Result[unit, JoinError]) =
+    outcome match
+        Ok(_) -> print(s"joined $what")
+        Err(e) -> print(s"could not join $what — $e")
+
+eval(line: string) =
+    val word = split(line, " ")
+
+    if word.len == 0 then return
+
+    word[0] match
+        "" -> return
+        "help" -> help()
+        "country" -> print(s"the radio is set to ${country()}")
+        "leave" ->
+            leave()
+            print("left the network")
+
+        "join" if word.len != 3 -> print("join needs an SSID and a password")
+        "join" ->
+            print(s"joining ${word[1]}...")
+            report(word[1], join(word[1], word[2], Wpa2, join_wait()))
+
+        "open" if word.len != 2 -> print("open needs an SSID")
+        "open" ->
+            print(s"joining ${word[1]}...")
+            report(word[1], join_open(word[1], join_wait()))
+
+        "ap" if word.len != 3 -> print("ap needs an SSID and a password")
+        "ap" ->
+            access_point(word[1], word[2], Wpa2)
+            print(s"${word[1]} is up — nothing here hands out addresses, so a client will")
+            print("associate and then wait for a DHCP lease that is not coming")
+
+        "led" if word.len != 2 -> print("led needs 'on' or 'off'")
+        "led" ->
+            word[1] match
+                "on" -> led(true)
+                "off" -> led(false)
+                _ -> print(s"led does not understand '${word[1]}'")
+
+        _ -> print(s"'${word[0]}' is not a command — try 'help'")
+end eval
+
+@export("main")
+run() -> int =
+    if !init()
+        print("the wireless chip did not start")
+        return 1
+
+    wait_for_terminal()
+
+    print("sysl on a Raspberry Pi Pico 2 W — Wi-Fi. Type 'help'.")
+    print("")
+
+    loop
+        prompt()
+        eval(read_line())

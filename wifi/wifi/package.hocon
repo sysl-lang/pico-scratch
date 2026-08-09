@@ -1,0 +1,15 @@
+// Wi-Fi over the board's USB serial port.
+
+package {
+  name    = "wifi"
+  version = "0.1.0"
+}
+
+// **No `dependencies` block, unlike `repl/`, and that is temporary.** The Wi-Fi surface it needs is
+// not in a released `pico2` yet, so the CMake here passes `--lib` at the sibling worktree instead of
+// naming a coordinate. This goes back to a `pico2 { git = ..., version = ... }` the moment that
+// package is tagged, and until then this project does not build from a fresh clone.
+
+requires {
+  alloc = true
+}
