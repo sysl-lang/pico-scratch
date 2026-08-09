@@ -25,6 +25,7 @@ import sysl.time.{Duration, seconds}
 prompt() = prints("wifi> ")
 
 help() =
+    print("  list                 every network the radio can hear")
     print("  join SSID PASSWORD   join a WPA2 network")
     print("  open SSID            join a network that has no password")
     print("  ap SSID PASSWORD     become an access point instead")
@@ -42,6 +43,30 @@ help() =
 // the compiler can fold. A module `val` would also work and would be storage this does not need.
 private join_wait() -> Duration = seconds(20)
 
+// Every network within earshot, strongest first is *not* what this does — they come back in the
+// order they were first heard, which is near enough and keeps the demo honest about what the package
+// gives it.
+//
+// **The scan takes a few seconds and the prompt does not come back until it is done.** Saying so
+// first matters more here than anywhere else in this program: a REPL that goes quiet for three
+// seconds looks like the wedged board that `repl/` was written to stop happening.
+list_networks() =
+    print("scanning...")
+
+    val found = scan(seconds(4))
+
+    if found.len == 0
+        print("  nothing answered")
+        return
+
+    for n in found
+        print(s"  ${n.ssid}")
+        print(s"      channel ${n.channel}, ${n.rssi} dBm${if n.auth_code == 0 then ", open" else ""}")
+
+    if scan_was_truncated()
+        print("  ...and more than there was room for")
+end list_networks
+
 // The one place a join's outcome is turned into words.
 //
 // `JoinError` renders itself, so this says what happened and lets the error say why.
@@ -58,6 +83,7 @@ eval(line: string) =
     word[0] match
         "" -> return
         "help" -> help()
+        "list" -> list_networks()
         "country" -> print(s"the radio is set to ${country()}")
         "leave" ->
             leave()
