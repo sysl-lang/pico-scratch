@@ -72,28 +72,24 @@ set(SYSL_C_DEFINES $<TARGET_PROPERTY:sysl_wifi,COMPILE_DEFINITIONS>)
 # `--lib` tree's C nor upgrading the compiler re-ran `sysl build-c`, so a `libwifi.a` built the night
 # before by an older compiler was reused and reported the *old* failure. The fix looked like it had
 # not worked when it had never been run, and `ar t` on the archive is what settled it.
-file(GLOB_RECURSE SYSL_LIB_SOURCES CONFIGURE_DEPENDS
-    $ENV{HOME}/dev/sysl-lang/pico2-wifi/*.sysl
-    $ENV{HOME}/dev/sysl-lang/pico2-wifi/*.c
-    $ENV{HOME}/dev/sysl-lang/pico2-wifi/*.h
-    $ENV{HOME}/dev/sysl-lang/pico2-wifi/*.hocon)
-
 find_program(SYSL_COMPILER sysl REQUIRED)
 
-# **`--lib` at a sibling worktree, where `repl/` names a coordinate.** The Wi-Fi surface is not in a
-# released `pico2` yet; this reverts to a `dependencies` block in `wifi/package.hocon` as soon as
-# that package is tagged. Until then this project needs the worktree beside it and will not build
-# from a fresh clone.
+# **`pico2` is named as a coordinate now, like `repl/` beside it.** This passed `--lib` at a sibling
+# worktree for as long as the Wi-Fi surface was on an unmerged branch, which meant the project did
+# not build from a fresh clone; `pico2` v0.0.6 is the tag that ended that, and the dependency is
+# declared in `wifi/package.hocon` where it belongs.
+#
+# **The glob over that worktree went with it.** It was in `DEPENDS` so that editing the package's own
+# sources rebuilt the archive, which a fetched dependency does not need: a coordinate is immutable, so
+# the only thing that can change it is the version in `package.hocon`, which is named below.
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     COMMAND ${SYSL_COMPILER} build-c ${CMAKE_CURRENT_SOURCE_DIR}/wifi --target thumb-freestanding-softfp
-            --lib $ENV{HOME}/dev/sysl-lang/pico2-wifi
             "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
             "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/wifi/wifi.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/wifi/package.hocon
-            ${SYSL_LIB_SOURCES}
             ${SYSL_COMPILER}
     COMMENT "Compiling the sysl module for thumbv8m.main"
     COMMAND_EXPAND_LISTS

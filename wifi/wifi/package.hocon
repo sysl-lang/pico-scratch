@@ -5,10 +5,12 @@ package {
   version = "0.1.0"
 }
 
-// **No `dependencies` block, unlike `repl/`, and that is temporary.** The Wi-Fi surface it needs is
-// not in a released `pico2` yet, so the CMake here passes `--lib` at the sibling worktree instead of
-// naming a coordinate. This goes back to a `pico2 { git = ..., version = ... }` the moment that
-// package is tagged, and until then this project does not build from a fresh clone.
+// **0.0.6 is the first `pico2` with a radio in it**, which is why this names a later version than
+// `repl/` beside it: association, scanning, the DHCP readback, name resolution and the fetch all
+// arrived together in that tag. `repl/` wants none of them and has no reason to move.
+dependencies {
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.6" }
+}
 
 requires {
   alloc = true
