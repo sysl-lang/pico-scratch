@@ -2,12 +2,13 @@ cmake_minimum_required(VERSION 3.13)
 
 set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
-# sysl's only Cortex-M33 target is `thumbv8m.main-none-eabihf`, which passes floating-point
-# arguments in VFP registers. The SDK defaults to `softfp`, which passes them in integer registers,
-# and GNU ld refuses to merge objects that disagree — "uses VFP register arguments, <output> does
-# not" — whether or not any float ever crosses the boundary. `PICO_HARD_FLOAT_ABI` is the SDK's own
-# supported switch for this, so the C side moves to match sysl.
-set(PICO_HARD_FLOAT_ABI 1)
+# **No `PICO_HARD_FLOAT_ABI` here, and that is the point of `thumb-freestanding-softfp`.** GNU ld
+# refuses to merge objects whose float ABIs disagree — "uses VFP register arguments, <output> does
+# not" — whether or not a float ever crosses the boundary, so somebody has to move. Until sysl
+# 0.0.35 its only Cortex-M33 target was `thumbv8m.main-none-eabihf`, and this project set the SDK's
+# switch so the C side matched sysl. That was backwards for a language whose `@export` claim is that
+# it joins somebody else's build: the SDK's default is `softfp`, so this is a stock pico-sdk now and
+# it is sysl that follows.
 
 include(pico_sdk_import.cmake)
 
@@ -79,7 +80,7 @@ find_program(SYSL_COMPILER sysl REQUIRED)
 # from a fresh clone.
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
-    COMMAND ${SYSL_COMPILER} build-c ${CMAKE_CURRENT_SOURCE_DIR}/wifi --target thumb-freestanding
+    COMMAND ${SYSL_COMPILER} build-c ${CMAKE_CURRENT_SOURCE_DIR}/wifi --target thumb-freestanding-softfp
             --lib $ENV{HOME}/dev/sysl-lang/pico2-wifi
             "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
             "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"

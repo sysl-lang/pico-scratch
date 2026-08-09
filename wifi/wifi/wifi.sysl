@@ -20,7 +20,7 @@
 
 import sh.sysl.pico2.*
 import sysl.text.split
-import sysl.time.{Duration, seconds}
+import sysl.time.{Duration, DurationUnits}
 
 prompt() = prints("wifi> ")
 
@@ -39,9 +39,10 @@ help() =
 // **Twenty seconds is long, and it has to be.** A join is an association, a four-way handshake and a
 // DHCP exchange, and a router that is busy can take most of that. A short timeout here reports a
 // working network as broken, which is the worst answer available.
-// A function rather than a `const`, because `seconds(20)` is a call and a `const` must be something
-// the compiler can fold. A module `val` would also work and would be storage this does not need.
-private join_wait() -> Duration = seconds(20)
+// A function rather than a `const`, because `20.s` is a call too -- a property is a member with no
+// parameter list, not a literal -- and a `const` must be something the compiler can fold. A module
+// `val` would also work and would be storage this does not need.
+private join_wait() -> Duration = 20.s
 
 // Every network within earshot, strongest first is *not* what this does — they come back in the
 // order they were first heard, which is near enough and keeps the demo honest about what the package
@@ -53,7 +54,7 @@ private join_wait() -> Duration = seconds(20)
 list_networks() =
     print("scanning...")
 
-    val found = scan(seconds(4))
+    val found = scan(4.s)
 
     if found.len == 0
         print("  nothing answered")

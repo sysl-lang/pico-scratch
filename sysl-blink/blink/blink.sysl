@@ -8,7 +8,7 @@
 // newlib's, wired to the USB serial port.
 
 import sh.sysl.pico2.*
-import sysl.time.{Duration, millis}
+import sysl.time.{Duration, DurationUnits}
 
 // Rendering a 64-bit number divides by ten, and a Cortex-M33 has no 64-bit divide instruction — so
 // printing this also checks that the ARM EABI helper the toolchain supplies is reachable.
@@ -45,7 +45,7 @@ run() -> int =
     var n: u32 = 0
 
     loop
-        flash(millis(120), millis(120))
-        flash(millis(120), millis(640))
+        flash(120.ms, 120.ms)
+        flash(120.ms, 640.ms)
         print(s"tick $n, fib($n) = ${fib(n)}")
         n += 1

@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.13)
 
 set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
-# sysl's only Cortex-M33 target is `thumbv8m.main-none-eabihf`, which passes floating-point
-# arguments in VFP registers. The SDK defaults to `softfp`, which passes them in integer registers,
-# and GNU ld refuses to merge objects that disagree — "uses VFP register arguments, <output> does
-# not" — whether or not any float ever crosses the boundary. `PICO_HARD_FLOAT_ABI` is the SDK's own
-# supported switch for this, so the C side moves to match sysl.
-set(PICO_HARD_FLOAT_ABI 1)
+# **No `PICO_HARD_FLOAT_ABI`, and that is what `thumb-freestanding-softfp` is for.** GNU ld refuses
+# to merge objects whose float ABIs disagree — "uses VFP register arguments, <output> does not" —
+# whether or not a float ever crosses the boundary, so somebody has to move. Until sysl 0.0.35 its
+# only Cortex-M33 target was `thumbv8m.main-none-eabihf` and this project set the SDK's switch so the
+# C side matched sysl; the SDK's default is `softfp`, so this is a stock pico-sdk now and it is sysl
+# that follows.
 
 include(pico_sdk_import.cmake)
 
@@ -24,7 +24,7 @@ add_custom_command(
     # The board comes from the `pico2` package, declared in `blink/package.hocon` and fetched by
     # coordinate — so there is no path to a sibling checkout here, and this builds from a fresh
     # clone with nothing else present.
-    COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding
+    COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding-softfp
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/blink/blink.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/blink/package.hocon
