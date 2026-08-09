@@ -14,22 +14,20 @@ pico_sdk_init()
 
 set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libogol.a)
 
-# **BOTH halves are sibling checkouts, and the second one is a workaround.** The language is here by
-# `--lib` because `sysl-lang/ogol` is not tagged yet, which is the same arrangement `wifi/` has and
-# costs the same thing: this project does not build from a fresh clone.
+# **The language is here by `--lib` because `sysl-lang/ogol` is not tagged yet**, which is the same
+# arrangement `wifi/` has and costs the same thing: this project does not build from a fresh clone.
+# The board is an ordinary coordinate in `ogol/package.hocon`.
 #
-# The *board* is here by `--lib` for a different reason, and it is a compiler defect rather than a
-# choice — card `0055`. A `--lib` source root binding a top-level name silently shadows the
-# sub-modules of a **coordinate** dependency binding the same one, and every package in this org binds
-# `sh`. So `--lib ogol` beside `pico2 { git = … }` reports `no module is called
-# 'sh.sysl.pico2.externs'`, pointing inside the cached package, while two `--lib` roots resolve
-# perfectly. Restore the coordinate in `ogol/package.hocon` and drop the second `--lib` when 0055 is
-# fixed.
+# It was a second `--lib` until sysl 0.0.37, and not by choice — card `0055`. A `--lib` source root
+# binding a top-level name silently shadowed the sub-modules of a **coordinate** dependency binding
+# the same one, and every package in this org binds `sh`, so `--lib ogol` beside
+# `pico2 { git = … }` reported `no module is called 'sh.sysl.pico2.externs'` from inside the cached
+# package. **This needs sysl 0.0.37 or newer**; an older one wants the coordinate turned back into a
+# second `--lib`.
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/ogol --target thumb-freestanding-softfp
             --lib $ENV{HOME}/dev/sysl-lang/ogol
-            --lib $ENV{HOME}/dev/sysl-lang/pico2
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ogol/main.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/ogol/package.hocon
