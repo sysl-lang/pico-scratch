@@ -1,16 +1,63 @@
 // Ogol on a Raspberry Pi Pico 2 W, over the USB serial port.
 //
-// **This is the same twenty lines as the desktop console, with one line different**: the board reads
-// through `pico2.read_line` rather than through `sysl.io`, because a serial terminal sends a bare `\r`
-// when Enter is pressed and needs an echo the host will not supply. Everything else — holding an
-// unfinished line, printing what came back, echoing a value and not an absence — is the language's
-// own, and is identical on both.
+// **This is now the desktop console with its first three lines swapped**, and that is a smaller
+// difference than it used to be. Both build a `sysl.term.edit.Editor` and walk it; the board's reads
+// the USB port, the desktop's reads standard input after putting the terminal into cbreak mode. There
+// is no mode to change here, because a USB CDC port has no line discipline to get out of the way of —
+// which is the reason a line editor had to exist at all.
 //
-// That the difference is one line is the point of the split. The language is developed on a desktop,
-// where a test suite runs in fifty milliseconds, and shipped here.
+// Until sysl 0.0.38 that editor was `pico2.read_line`, two hundred lines living in the board's
+// package because nothing in the standard library would echo a keystroke. Moving it into `sysl.term`
+// is what makes these two consoles the same program: the language is developed on a desktop, where a
+// test suite runs in fifty milliseconds, and shipped here unchanged.
 
 import sh.sysl.pico2.*
 import sh.sysl.ogol.*
+import sysl.io.Reader
+import sysl.term.edit.editor
+
+// The USB port as the two halves an editor asks for.
+//
+// **They are here rather than in `pico2` only because this is a testbed.** They belong in the
+// package, beside `read_byte` and `write_byte`, and the branch that puts them there is written; until
+// that ships as a tag, a coordinate dependency cannot carry them and writing them out is nine lines.
+//
+// Neither carries state, because the port is the board's and not the value's — the same reason
+// `sysl.io`'s `Stdout` and `Stderr` are empty structs. Two types rather than one implementing both,
+// so the editor is handed two distinct borrows.
+struct ConsoleIn
+end ConsoleIn
+
+impl Fallible for ConsoleIn
+
+// **One byte per read is honest rather than lazy.** `read_byte` blocks until one arrives and cannot
+// say how many are waiting, so filling more of the offered slice would mean waiting for input that
+// may never be typed. The editor refills as often as it must; that is what its own buffer is for.
+impl Reader for ConsoleIn
+    read(*self, into: []u8) -> []const u8
+        if into.len == 0 then return into
+
+        read_byte() match
+            None -> into[0..<0]
+
+            Some(b) ->
+                into[0] = b
+                into[0..<1]
+    end read
+end ConsoleIn
+
+struct ConsoleOut
+end ConsoleOut
+
+impl Fallible for ConsoleOut
+
+// No flushing, which is the one place a board is simpler than a host: the SDK's `putchar` puts bytes
+// on the wire rather than into a buffer, so what the editor echoes appears as it is typed and nobody
+// has to ask. `sysl.term.tty.tty_writer` exists because a hosted C library does not behave this way.
+impl Writer for ConsoleOut
+    write(*self, bytes: []const u8)
+        for b in bytes do write_byte(b)
+end ConsoleOut
 
 @export("main")
 boot() -> int =
@@ -25,15 +72,20 @@ boot() -> int =
     print("Ogol on a Raspberry Pi Pico 2 W. Type a line.")
     print("")
 
+    var input = ConsoleIn()
+    var output = ConsoleOut()
+    var ed = editor(&input, &output)
     var interp = ogol()
 
     // What has been typed and not yet run, because it was not finished.
     var pending = ""
 
-    loop
-        prints(if pending == "" then "ogol> " else ".... ")
+    prints("ogol> ")
 
-        var src = if pending == "" then read_line() else pending + "\n" + read_line()
+    // The walk does not end: a serial port has no end of input, so `read` blocks rather than
+    // answering empty, and the editor goes on handing back lines for as long as the board is powered.
+    for line in ed
+        var src = if pending == "" then line else pending + "\n" + line
 
         pending = ""
 
@@ -46,4 +98,8 @@ boot() -> int =
                 f match
                     More -> pending = src
                     Bad(message) -> print(message)
+
+        prints(if pending == "" then "ogol> " else ".... ")
+
+    0
 end boot

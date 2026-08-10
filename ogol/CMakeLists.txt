@@ -24,10 +24,15 @@ set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libogol.a)
 # `pico2 { git = … }` reported `no module is called 'sh.sysl.pico2.externs'` from inside the cached
 # package. **This needs sysl 0.0.37 or newer**; an older one wants the coordinate turned back into a
 # second `--lib`.
+# Which checkout of the language to build against. It is a cache variable rather than a fixed path so
+# that a branch can be tried on the board without editing this file — `-DOGOL_LIB=…/ogol-lists` — and
+# so that what was built is recorded in CMakeCache.txt rather than remembered.
+set(OGOL_LIB "$ENV{HOME}/dev/sysl-lang/ogol" CACHE PATH "The sysl-lang/ogol checkout to build against")
+
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/ogol --target thumb-freestanding-softfp
-            --lib $ENV{HOME}/dev/sysl-lang/ogol
+            --lib ${OGOL_LIB}
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ogol/main.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/ogol/package.hocon
