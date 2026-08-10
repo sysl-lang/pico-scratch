@@ -16,7 +16,7 @@ package {
 // `no module is called 'sh.sysl.pico2.externs'` from inside the cached package. An older sysl still
 // needs the two-`--lib` workaround this comment used to describe.
 dependencies {
-  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.4" }
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.7" }
 }
 
 // The heap is the language's, not this program's. An interpreter grows a token list, a tree and a

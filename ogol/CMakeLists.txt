@@ -29,14 +29,52 @@ set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libogol.a)
 # so that what was built is recorded in CMakeCache.txt rather than remembered.
 set(OGOL_LIB "$ENV{HOME}/dev/sysl-lang/ogol" CACHE PATH "The sysl-lang/ogol checkout to build against")
 
+# **`pico2` carries C now, and it needs the SDK's headers to compile.**
+#
+# This project needed none of the following while it named pico2 v0.0.4, because that version was
+# pure declaration — every name in it was a symbol the SDK already had. v0.0.5 onwards carries
+# `scan.c` and `dns.c` for the radio, and `sysl build-c` is a program CMake knows nothing about, so
+# what it can see has to be handed to it. `wifi/CMakeLists.txt` carries the whole of this story.
+#
+# The libc half comes from the toolchain rather than being written down: `-print-sysroot` answers with
+# the directory whose `include` holds newlib's headers, and the obvious path one level up has no
+# `string.h` in it.
+execute_process(
+    COMMAND ${CMAKE_C_COMPILER} -print-sysroot
+    OUTPUT_VARIABLE ARM_SYSROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+# The SDK half is asked of the SDK: it generates some of its headers into its own build directory, so
+# a fixed list written here would go stale the first time it moved one. What is asked is the
+# **executable's** resolved list rather than any one library's, because `cyw43.h` includes
+# `lwip/netif.h`, which is two link libraries away — reading `INCLUDE_DIRECTORIES` off the target gets
+# the transitive closure CMake has already worked out for the C side. It names a target defined
+# further down, which is fine: a generator expression is resolved after the whole file is read.
+set(SYSL_C_INCLUDES
+    ${ARM_SYSROOT}/include
+    $<TARGET_PROPERTY:sysl_ogol,INCLUDE_DIRECTORIES>)
+
+# And the macros, which finding the headers does not supply: `pico/cyw43_arch.h` `#error`s rather than
+# picking an architecture variant, so every include path can be right and the compile still stops
+# inside a header.
+set(SYSL_C_DEFINES $<TARGET_PROPERTY:sysl_ogol,COMPILE_DEFINITIONS>)
+
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/ogol --target thumb-freestanding-softfp
             --lib ${OGOL_LIB}
+            "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
+            "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ogol/main.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/ogol/package.hocon
     COMMENT "Compiling Ogol and its console for thumbv8m.main"
+    # **`COMMAND_EXPAND_LISTS`, without which the two generator expressions above are useless.** A
+    # quoted argument that expands to a `;`-separated list stays *one* argument unless this is given,
+    # so `sysl` is handed a single `--include-path;/a;--include-path;/b` and answers
+    # `Unknown option`. Unquoting is not the fix either — CMake then splits the variable at parse
+    # time and the `$<` never evaluates at all.
+    COMMAND_EXPAND_LISTS
     VERBATIM)
 
 add_custom_target(sysl_archive DEPENDS ${SYSL_ARCHIVE})
