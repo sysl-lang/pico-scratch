@@ -14,9 +14,9 @@ pico_sdk_init()
 
 set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libogol.a)
 
-# **The language is here by `--lib` because `sysl-lang/ogol` is not tagged yet**, which is the same
-# arrangement `wifi/` has and costs the same thing: this project does not build from a fresh clone.
-# The board is an ordinary coordinate in `ogol/package.hocon`.
+# **Both the language and the board are ordinary coordinates**, declared in `ogol/package.hocon`, so
+# this project builds from a fresh clone. It did not until `sysl-lang/ogol` was tagged v0.1.0 on
+# 2026-08-10; before that the language came by `--lib` from a checkout beside this one.
 #
 # It was a second `--lib` until sysl 0.0.37, and not by choice — card `0055`. A `--lib` source root
 # binding a top-level name silently shadowed the sub-modules of a **coordinate** dependency binding
@@ -24,11 +24,6 @@ set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libogol.a)
 # `pico2 { git = … }` reported `no module is called 'sh.sysl.pico2.externs'` from inside the cached
 # package. **This needs sysl 0.0.37 or newer**; an older one wants the coordinate turned back into a
 # second `--lib`.
-# Which checkout of the language to build against. It is a cache variable rather than a fixed path so
-# that a branch can be tried on the board without editing this file — `-DOGOL_LIB=…/ogol-lists` — and
-# so that what was built is recorded in CMakeCache.txt rather than remembered.
-set(OGOL_LIB "$ENV{HOME}/dev/sysl-lang/ogol" CACHE PATH "The sysl-lang/ogol checkout to build against")
-
 # **`pico2` carries C now, and it needs the SDK's headers to compile.**
 #
 # This project needed none of the following while it named pico2 v0.0.4, because that version was
@@ -62,7 +57,6 @@ set(SYSL_C_DEFINES $<TARGET_PROPERTY:sysl_ogol,COMPILE_DEFINITIONS>)
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/ogol --target thumb-freestanding-softfp
-            --lib ${OGOL_LIB}
             "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
             "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}

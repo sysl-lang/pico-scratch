@@ -5,18 +5,23 @@ package {
   version = "0.1.0"
 }
 
-// **`sh.sysl.ogol` is not here, and that is the one thing still missing.** `sysl-lang/ogol` is not
-// tagged yet, so it arrives by `--lib` from the checkout beside this one -- the same arrangement
-// `wifi/` has with the unreleased half of `pico2`, and the same cost, which is that this project
-// does not build from a fresh clone.
+// **Both dependencies are coordinates, and this project builds from a fresh clone.** That was not
+// true until 2026-08-10: `sysl-lang/ogol` was untagged, so the language arrived by `--lib` from a
+// checkout that had to be sitting beside this one.
 //
 // `sh.sysl.pico2` is a coordinate again as of **sysl 0.0.37**. It had to stop being one for a while,
 // which was card `0055`: a `--lib` root shadowed the sub-modules of a coordinate dependency binding
 // the same top-level name, and every package in this org binds `sh` -- so the two together reported
 // `no module is called 'sh.sysl.pico2.externs'` from inside the cached package. An older sysl still
 // needs the two-`--lib` workaround this comment used to describe.
+//
+// **pico2 v0.0.7 is what supplies `console_in` and `console_out`**, the port as a `Reader` and a
+// `Writer`. Before it, this program declared its own -- nine lines around `read_byte` and
+// `write_byte` -- because the branch adding them could not be tagged until sysl 0.0.38 existed for
+// it to compile against.
 dependencies {
   pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.7" }
+  ogol  { git = "github.com/sysl-lang/ogol",  version = "0.1.0" }
 }
 
 // The heap is the language's, not this program's. An interpreter grows a token list, a tree and a
