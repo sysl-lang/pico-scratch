@@ -19,7 +19,8 @@ dependencies {
 //
 // **The word is `heap` here and `@no_alloc` in a source file, on purpose** — this file says whether a
 // facility exists, and a module giving one up is promising something about its own conduct. `alloc`
-// here is refused, and the refusal says which one was meant.
+// is still accepted and mapped, because a tag is immutable and every package pinned at a manifest
+// saying `alloc` would stop resolving the day it was refused; `heap` is the one to write.
 requires {
   heap = true
 }

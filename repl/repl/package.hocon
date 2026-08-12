@@ -22,8 +22,11 @@ dependencies {
 //
 // **The word is `heap` here and `@no_alloc` in a source file, and the two are different on purpose.**
 // This file states whether a facility *exists*, which is a noun beside `os` and `threads`; a module
-// giving one up is promising something about its own conduct, which is a verb. Writing `alloc` here
-// is refused, and the refusal says so.
+// giving one up is promising something about its own conduct, which is a verb.
+//
+// `alloc` is still *accepted* here and mapped to `heap`, deliberately: a tag is immutable, so every
+// package in the org pinned at a version whose manifest says `alloc` would stop resolving on the day
+// that spelling was refused. It is transitional, and `heap` is the one to write.
 requires {
   heap = true
 }
