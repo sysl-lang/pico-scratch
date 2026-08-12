@@ -19,16 +19,48 @@ pico_sdk_init()
 # both, and names the header after the archive.
 set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/librepl.a)
 
+# **A package's C is compiled whole, whatever the program imports** — so this project pays for the
+# radio it never mentions. `pico2` v0.0.6 put four C files in the package (`scan.c`, `dns.c`, `net.c`,
+# `http.c`), and `sysl build-c` walks the dependency's tree and compiles every one of them into the
+# archive. Nothing here calls `scan` or `fetch`; the objects go in unreferenced and the linker drops
+# them, but they still have to *compile*, and they include `pico/cyw43_arch.h` and `lwip/dns.h`.
+#
+# That is why this file grew an include block it did not have while the package was pinned at 0.0.4.
+# The alternative is not upgrading, and 0.0.7 is the tag where the line editor moved into the
+# standard library — so the choice was between paying for the radio's headers and keeping two hundred
+# lines of editor on the board.
+execute_process(
+    COMMAND ${CMAKE_C_COMPILER} -print-sysroot
+    OUTPUT_VARIABLE ARM_SYSROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+# The executable's own resolved list rather than any one library's, for the reason `wifi/` gives at
+# more length: a header two link libraries away is still a header this compile needs, and CMake has
+# already worked the closure out for the C side.
+set(SYSL_C_INCLUDES
+    ${ARM_SYSROOT}/include
+    ${CMAKE_CURRENT_LIST_DIR}
+    $<TARGET_PROPERTY:sysl_repl,INCLUDE_DIRECTORIES>)
+
+# `pico/cyw43_arch.h` `#error`s rather than choosing a variant, so finding the headers is not enough.
+set(SYSL_C_DEFINES $<TARGET_PROPERTY:sysl_repl,COMPILE_DEFINITIONS>)
+
+find_program(SYSL_COMPILER sysl REQUIRED)
+
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     # The board comes from the `pico2` package, declared in `repl/package.hocon` and fetched by
     # coordinate — so there is no path to a sibling checkout here, and this builds from a fresh
     # clone with nothing else present.
-    COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/repl --target thumb-freestanding-softfp
+    COMMAND ${SYSL_COMPILER} build-c ${CMAKE_CURRENT_SOURCE_DIR}/repl --target thumb-freestanding-softfp
+            "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
+            "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/repl/repl.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/repl/package.hocon
+            ${SYSL_COMPILER}
     COMMENT "Compiling the sysl module for thumbv8m.main"
+    COMMAND_EXPAND_LISTS
     VERBATIM)
 
 add_custom_target(sysl_archive DEPENDS ${SYSL_ARCHIVE})

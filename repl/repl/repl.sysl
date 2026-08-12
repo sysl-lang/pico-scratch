@@ -6,19 +6,27 @@
 // **`sysl.io`'s line cursor is the wrong tool for a console.** It splits on `\n`, which is right for
 // a pipe and wrong for a terminal: `screen` sends a bare `\r` when Enter is pressed, so a program
 // reading lines that way waits forever and looks dead. It was tried first and did exactly that —
-// three commands arrived as the single line `help\rhelp\rhelp`. `pico2.read_line` takes CR, LF or
-// CRLF instead, which is what a serial console has always had to do.
+// three commands arrived as the single line `help\rhelp\rhelp`.
+//
+// **What answers it is `sysl.term.edit`, the standard library's editor rather than this board's.**
+// For a while it was `pico2.read_line` — two hundred lines of insertion, backspace and arrow keys
+// living in the board's package, because nothing shipped with the language would echo a keystroke.
+// pico2 v0.0.7 gives the editor up and supplies the *port* instead: `ConsoleIn` and `ConsoleOut`, a
+// `Reader` and a `Writer` over USB CDC. So what runs here is what runs at a desktop terminal, and
+// only those two types are the board's.
 //
 // **And a board prints into nowhere until a host attaches**, because the SDK discards stdio output
 // with no reader — so the banner is written after `wait_for_terminal`, not before.
 //
-// It allocates, and says so: `read_line` grows the line as it is typed, and `split` answers a
+// It allocates, and says so: the editor grows the line as it is typed, and `split` answers a
 // `[]string`. The heap is newlib's, which the SDK links, so it is there whether or not this program
-// uses it — but `package.hocon` still declares `alloc = true`, because that is a claim about what
+// uses it — but `package.hocon` still declares `heap = true`, because that is a claim about what
 // the code does rather than a request for something to exist.
 
 import sh.sysl.pico2.*
+import sysl.term.edit.editor
 import sysl.text.{split, parse_int}
+import sysl.time.DurationUnits
 
 prompt() = prints("sysl> ")
 
@@ -75,6 +83,24 @@ run() -> int =
     print("sysl on a Raspberry Pi Pico 2 W. Type 'help'.")
     print("")
 
-    loop
+    var input = console_in()
+    var output = console_out()
+    var ed = editor(&input, &output)
+
+    // The prompt is the caller's, because every movement the editor makes is relative and it never
+    // learns how far along the row a line starts. So one before the first read, and one after each
+    // line is answered.
+    prompt()
+
+    for line in ed
+        eval(line)
         prompt()
-        eval(read_line())
+
+    // Reached only if the port ends, which a USB CDC console does not do while a host is attached.
+    // A board has nowhere to return *to* either, so the request is answered rather than obeyed.
+    print("")
+    print("input ended — reset the board")
+
+    loop
+        sleep(1.s)
+end run

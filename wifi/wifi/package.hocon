@@ -5,13 +5,21 @@ package {
   version = "0.1.0"
 }
 
-// **0.0.6 is the first `pico2` with a radio in it**, which is why this names a later version than
-// `repl/` beside it: association, scanning, the DHCP readback, name resolution and the fetch all
-// arrived together in that tag. `repl/` wants none of them and has no reason to move.
+// **0.0.7 is where the package gave up its line editor and kept the port.** `read_line` — two hundred
+// lines of insertion, backspace and arrow keys — is `sysl.term.edit` now, and what pico2 supplies in
+// its place is `ConsoleIn` and `ConsoleOut`: a `Reader` and a `Writer` over USB CDC. The radio arrived
+// one tag earlier, in 0.0.6.
 dependencies {
-  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.6" }
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.7" }
 }
 
+// The line is grown as it is typed and then split into words, and both want a heap. It is newlib's,
+// which the SDK links; the capability is a claim about what this code does rather than a request for
+// something to exist.
+//
+// **The word is `heap` here and `@no_alloc` in a source file, on purpose** — this file says whether a
+// facility exists, and a module giving one up is promising something about its own conduct. `alloc`
+// here is refused, and the refusal says which one was meant.
 requires {
-  alloc = true
+  heap = true
 }

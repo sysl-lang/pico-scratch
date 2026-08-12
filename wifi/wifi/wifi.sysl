@@ -1,15 +1,19 @@
 // Wi-Fi on the Pico 2 W, driven from the USB serial port.
 //
 // The point of this one is the *radio*, which nothing else here touches. It is the `repl/` shape with
-// a different command set, deliberately: the line editor, the CR/LF handling and the banner were all
+// a different command set, deliberately: the console, the banner and the way a line is read were all
 // settled there, so what is left on screen is the part that is new.
 //
-// **This links `pico_cyw43_arch_lwip_threadsafe_background`, where `repl/` links
-// `pico_cyw43_arch_none`.** Two reasons, and the first is not optional: joining waits for the link to
-// come *up*, which is a question only lwIP can answer, so with no stack linked the radio associates
-// and nothing is ever able to report it. The second is why the *background* variant rather than the
-// polling one — this program spends nearly all of its life blocked inside `read_line`, and the
-// polling variant would run the driver only between keystrokes.
+// **The console is `sysl.term.edit` over the port `sh.sysl.pico2` supplies**, which is the same
+// arrangement `repl/` uses and the same one a desktop program uses. It used to be `pico2.read_line`,
+// an editor living in the board's package; pico2 v0.0.7 gives that up and keeps `ConsoleIn` and
+// `ConsoleOut` — a `Reader` and a `Writer` — so only those two types are the board's.
+//
+// **This links `pico_cyw43_arch_lwip_threadsafe_background`.** Two reasons, and the first is not
+// optional: joining waits for the link to come *up*, which is a question only lwIP can answer, so
+// with no stack linked the radio associates and nothing is ever able to report it. The second is why
+// the *background* variant rather than the polling one — this program spends nearly all of its life
+// blocked waiting for a keystroke, and the polling variant would run the driver only between them.
 //
 // **A successful `join` means there is a DHCP lease**, not merely that the radio associated. That is
 // the SDK's definition of link-up and it is the useful one: the board is on the network.
@@ -29,6 +33,7 @@
 // is configured with, and it is the application's file in the way `lwipopts.h` is.
 
 import sh.sysl.pico2.*
+import sysl.term.edit.editor
 import sysl.text.split
 import sysl.time.{Duration, DurationUnits}
 
@@ -214,6 +219,23 @@ run() -> int =
     print("sysl on a Raspberry Pi Pico 2 W — Wi-Fi. Type 'help'.")
     print("")
 
-    loop
+    var input = console_in()
+    var output = console_out()
+    var ed = editor(&input, &output)
+
+    // The prompt is the caller's: every movement the editor makes is relative, so it never learns
+    // how far along the row a line starts. One before the first read, and one after each answer.
+    prompt()
+
+    for line in ed
+        eval(line)
         prompt()
-        eval(read_line())
+
+    // Reached only if the port ends, which a USB CDC console does not do while a host is attached.
+    // A board has nowhere to return *to* either, so the request is answered rather than obeyed.
+    print("")
+    print("input ended — reset the board")
+
+    loop
+        sleep(1.s)
+end run
