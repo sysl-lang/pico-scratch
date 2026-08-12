@@ -10,6 +10,13 @@ package {
   version = "0.1.0"
 }
 
+// **0.0.4 on purpose, where `repl/` and `wifi/` name 0.0.7.** A package's C is compiled whole
+// whatever the program imports, and 0.0.6 put the radio's four C files in this one — so a consumer
+// naming a later tag has to hand `sysl build-c` the SDK's include closure and its compile definitions
+// before `dns.c` will get past `pico/cyw43_arch.h`. This project exists to be the smallest thing that
+// works, and 0.0.4 is the last tag where that is a `CMakeLists.txt` with no include block in it.
+//
+// Nothing here wants anything the later tags added: the LED, `sleep_ms` and `print` are all 0.0.4.
 dependencies {
   pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.4" }
 }

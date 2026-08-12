@@ -4,7 +4,7 @@ Bare-metal C **and sysl** for a Raspberry Pi Pico 2 W (RP2350, Cortex-M33, CYW43
 
 It is a testbed rather than a component — the name says so on purpose. What it is for is finding out
 what sysl on real silicon actually needs, and it has been good at that: seven compiler and library
-tickets came out of writing the two sysl programs here, and all of them shipped.
+tickets came out of writing the sysl programs here, and all of them shipped.
 
 ## Layout
 
@@ -12,14 +12,22 @@ tickets came out of writing the two sysl programs here, and all of them shipped.
     blink/        C: onboard LED + a hello-world counter over USB serial
     sysl-blink/   the same thing in sysl, with the SDK hosting it
     repl/         a REPL in sysl over the USB serial port, with line editing
+    wifi/         the radio, driven from that same REPL — scan, join, resolve, fetch
 
 **`blink/` is kept deliberately.** It is the control: when something stops working, the question is
 always whether it is the board, the toolchain or sysl, and a C program that has never changed answers
 the first two in one build.
 
-Neither sysl program contains a line of C. The SDK supplies the board — the linker script, the vector
+No sysl project here contains a line of C. The SDK supplies the board — the linker script, the vector
 table, the boot block, the clocks, the `crt0` that calls `main` — and
 [`sh.sysl.pico2`](https://github.com/sysl-lang/pico2) declares the entry points.
+
+**The line editor is the standard library's**, which it was not always. `repl/` and `wifi/` build a
+`sysl.term.edit.Editor` over the `Reader` and `Writer` `pico2` supplies for the USB port, so the
+console here is the same code a program at a desktop terminal runs — a board and a laptop differ in
+where the bytes come from and in nothing else. Until pico2 v0.0.7 that editor was `pico2.read_line`,
+two hundred lines living in the board's package because nothing shipped with the language would echo
+a keystroke.
 
 ## Getting the SDK
 
@@ -53,7 +61,7 @@ not initialised, so the configure step warns that BLE is unavailable; that is ex
 
 ## Building
 
-Either project, the same way — `cd blink` or `cd sysl-blink`:
+Any of them, the same way — `cd blink`, `cd sysl-blink`, `cd repl` or `cd wifi`:
 
     PICO_SDK_PATH=$HOME/dev/sysl-lang/pico-scratch/pico-sdk cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build build
@@ -85,10 +93,12 @@ USB serial port. Only real symbols can be reached this way — much of the SDK's
 
     sysl build-c blink --target thumb-freestanding -o libblink.a
 
-**One setting there is load bearing**, and it is commented where it sits: `PICO_HARD_FLOAT_ABI`, set
-before the SDK is imported. sysl's only Cortex-M33 target passes floating-point arguments in VFP
-registers while the SDK defaults to `softfp`, and the linker refuses to merge the two even when no
-float crosses the boundary.
+**The float ABI is what makes the target name end in `-softfp`**, and it is commented where it sits.
+GNU ld refuses to merge objects whose float ABIs disagree — *"uses VFP register arguments, \<output\>
+does not"* — whether or not a float ever crosses the boundary, so one side has to move. Until sysl
+0.0.35 the only Cortex-M33 target was `thumbv8m.main-none-eabihf` and these projects set the SDK's
+`PICO_HARD_FLOAT_ABI` so the C side matched; sysl gained a softfp sibling in that release, so this is
+a stock pico-sdk now and it is sysl that follows.
 
 That command needed a `--no-std-lib` until **sysl 0.0.33**, because a `build-c` archive was left
 referring to library code it did not contain. That is what kept this repository private: its headline
@@ -97,12 +107,20 @@ lesson would have been a compiler defect. The archive is self-contained now.
 Use `loop` rather than `while true` for a non-returning entry point. `loop` diverges, so `main` can
 be typed `-> int` with no unreachable `return` after it.
 
+**A dependency's C is compiled whole, whatever the program imports.** `pico2` carries four C files
+for the radio, so a project naming a tag from v0.0.6 on has to hand `sysl build-c` the SDK's include
+directories and compile definitions before `dns.c` gets past `pico/cyw43_arch.h` — which is why
+`repl/` has an include block and `sysl-blink/`, pinned at v0.0.4, does not. It costs the *compile*
+and not the link: the four objects go into the archive unreferenced and stay there, so `repl.elf` is
+319 KB with no lwIP in it against `wifi.elf`'s 788 KB.
+
 ## Flashing
 
 The board has to be in BOOTSEL mode. Unplug it, hold the **BOOTSEL** button, plug it back in,
-release — `RPI-RP2` appears under `/Volumes`. Then either:
+release — **`RP2350`** appears under `/Volumes`. (`RPI-RP2` is the original Pico's name; looking for
+that one here finds nothing.) Then either:
 
-    cp build/blink.uf2 /Volumes/RPI-RP2          # it reboots itself when the copy finishes
+    cp build/blink.uf2 /Volumes/RP2350           # it reboots itself when the copy finishes
 
 or, which also works once firmware built with `pico_enable_stdio_usb` is already running (picotool
 can reset such a board into BOOTSEL by itself):
