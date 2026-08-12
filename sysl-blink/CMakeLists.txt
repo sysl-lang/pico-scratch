@@ -19,16 +19,54 @@ pico_sdk_init()
 # both, and names the header after the archive.
 set(SYSL_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/libblink.a)
 
+# **A package's C is compiled whole, whatever the program imports.** `pico2` has carried four C files
+# for the radio since v0.0.6 — `scan.c`, `dns.c`, `net.c`, `http.c` — and `sysl build-c` walks the
+# dependency's tree and compiles every one of them into the archive. This program says nothing about
+# the radio and still pays for its headers: `dns.c` includes `pico/cyw43_arch.h` and `lwip/dns.h`, and
+# without the block below the build stops inside a header on a project whose own code is fine.
+#
+# **What it does not cost is the link.** The four objects go in unreferenced and the linker leaves
+# them there, so this executable carries no lwIP at all.
+execute_process(
+    COMMAND ${CMAKE_C_COMPILER} -print-sysroot
+    OUTPUT_VARIABLE ARM_SYSROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+# The libc half is asked of the toolchain rather than spelled out: `-print-sysroot` answers with the
+# directory whose `include` holds newlib's headers, and the obvious path one level up has no
+# `string.h` in it and fails exactly as passing nothing does.
+#
+# The SDK half is the executable's own resolved list rather than any one library's. `cyw43.h` includes
+# `lwip/netif.h`, which is two link libraries away from where `scan.c` sits, so naming targets one at
+# a time gets each one's headers and none of what they pull in. It names a target defined further
+# down, which is fine — a generator expression is resolved after the whole file has been read.
+set(SYSL_C_INCLUDES
+    ${ARM_SYSROOT}/include
+    $<TARGET_PROPERTY:sysl_blink,INCLUDE_DIRECTORIES>)
+
+# And the macros, which finding the headers does not supply: `pico/cyw43_arch.h` `#error`s rather
+# than picking an architecture variant, so every path can be right and the compile still stops.
+set(SYSL_C_DEFINES $<TARGET_PROPERTY:sysl_blink,COMPILE_DEFINITIONS>)
+
+# Named rather than left to `PATH`, and in `DEPENDS`, because `find_program` is cached: a project
+# configured against one `sysl` goes on using it after an upgrade, and what that looks like is a
+# language feature that shipped and does not work.
+find_program(SYSL_COMPILER sysl REQUIRED)
+
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     # The board comes from the `pico2` package, declared in `blink/package.hocon` and fetched by
     # coordinate — so there is no path to a sibling checkout here, and this builds from a fresh
     # clone with nothing else present.
-    COMMAND sysl build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding-softfp
+    COMMAND ${SYSL_COMPILER} build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding-softfp
+            "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
+            "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/blink/blink.sysl
             ${CMAKE_CURRENT_SOURCE_DIR}/blink/package.hocon
+            ${SYSL_COMPILER}
     COMMENT "Compiling the sysl module for thumbv8m.main"
+    COMMAND_EXPAND_LISTS
     VERBATIM)
 
 add_custom_target(sysl_archive DEPENDS ${SYSL_ARCHIVE})

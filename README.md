@@ -108,11 +108,15 @@ Use `loop` rather than `while true` for a non-returning entry point. `loop` dive
 be typed `-> int` with no unreachable `return` after it.
 
 **A dependency's C is compiled whole, whatever the program imports.** `pico2` carries four C files
-for the radio, so a project naming a tag from v0.0.6 on has to hand `sysl build-c` the SDK's include
-directories and compile definitions before `dns.c` gets past `pico/cyw43_arch.h` — which is why
-`repl/` has an include block and `sysl-blink/`, pinned at v0.0.4, does not. It costs the *compile*
-and not the link: the four objects go into the archive unreferenced and stay there, so `repl.elf` is
-319 KB with no lwIP in it against `wifi.elf`'s 788 KB.
+for the radio, so every sysl project here — the blink one included — hands `sysl build-c` the SDK's
+include directories and compile definitions, or `dns.c` stops inside `pico/cyw43_arch.h` on a project
+whose own code is fine.
+
+It costs the *compile* and not the link: the four objects go into the archive unreferenced and stay
+there. `sysl_blink.elf` is 287 KB and `repl.elf` 319 KB, both with **no lwIP symbols in them at
+all**, against `wifi.elf`'s 788 KB and 148. Read the archive with the *toolchain's* `ar` — macOS `ar`
+prints a GNU archive's extended name table as `/0 /21 /43 /64` rather than the four file names, which
+looks like an archive holding nothing but `sysl.code.o`.
 
 ## Flashing
 

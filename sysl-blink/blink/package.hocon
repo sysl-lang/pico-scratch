@@ -10,15 +10,16 @@ package {
   version = "0.1.0"
 }
 
-// **0.0.4 on purpose, where `repl/` and `wifi/` name 0.0.7.** A package's C is compiled whole
-// whatever the program imports, and 0.0.6 put the radio's four C files in this one — so a consumer
-// naming a later tag has to hand `sysl build-c` the SDK's include closure and its compile definitions
-// before `dns.c` will get past `pico/cyw43_arch.h`. This project exists to be the smallest thing that
-// works, and 0.0.4 is the last tag where that is a `CMakeLists.txt` with no include block in it.
+// **The current tag, like everything else here.** This program wants nothing the later ones added —
+// the LED, `sleep_ms` and `print` were all in 0.0.4 — but a project left on a tag nobody else names
+// is one nobody notices has stopped building, and a testbed exists to be what gets tried first.
 //
-// Nothing here wants anything the later tags added: the LED, `sleep_ms` and `print` are all 0.0.4.
+// It is not free. A package's C is compiled whole whatever the program imports, and 0.0.6 put the
+// radio's four C files in this one, so `CMakeLists.txt` beside this has to hand `sysl build-c` the
+// SDK's include closure and its compile definitions before `dns.c` gets past `pico/cyw43_arch.h`.
+// That cost is real and is written down there rather than dodged here.
 dependencies {
-  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.4" }
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.7" }
 }
 
 // **No `requires` block.** The program asks for no allocator and no operating system: it prints,
