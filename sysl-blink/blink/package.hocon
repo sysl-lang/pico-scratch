@@ -19,7 +19,7 @@ package {
 // SDK's include closure and its compile definitions before `dns.c` gets past `pico/cyw43_arch.h`.
 // That cost is real and is written down there rather than dodged here.
 dependencies {
-  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.7" }
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.8" }
 }
 
 // **No `requires` block.** The program asks for no allocator and no operating system: it prints,

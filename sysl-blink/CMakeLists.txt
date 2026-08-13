@@ -58,7 +58,14 @@ add_custom_command(
     # The board comes from the `pico2` package, declared in `blink/package.hocon` and fetched by
     # coordinate — so there is no path to a sibling checkout here, and this builds from a fresh
     # clone with nothing else present.
+    #
+    # `--include-path pico_sdk=` is a different thing from the bare paths under it, and both are
+    # wanted. pico2 v0.0.8 declares that its C includes SDK, lwIP and mbedTLS headers it does not
+    # carry, and a declaration is answered only under its own name — a bare path deliberately does
+    # not answer one, or it would be satisfied by accident here and unenforced elsewhere. The named
+    # flag says *where the SDK is*; `SYSL_C_INCLUDES` says *how it is laid out*.
     COMMAND ${SYSL_COMPILER} build-c ${CMAKE_CURRENT_SOURCE_DIR}/blink --target thumb-freestanding-softfp
+            --include-path pico_sdk=${PICO_SDK_PATH}
             "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
             "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}

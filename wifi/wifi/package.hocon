@@ -10,7 +10,7 @@ package {
 // its place is `ConsoleIn` and `ConsoleOut`: a `Reader` and a `Writer` over USB CDC. The radio arrived
 // one tag earlier, in 0.0.6.
 dependencies {
-  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.7" }
+  pico2 { git = "github.com/sysl-lang/pico2", version = "0.0.8" }
 }
 
 // The line is grown as it is typed and then split into words, and both want a heap. It is newlib's,

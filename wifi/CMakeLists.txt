@@ -82,9 +82,18 @@ find_program(SYSL_COMPILER sysl REQUIRED)
 # **The glob over that worktree went with it.** It was in `DEPENDS` so that editing the package's own
 # sources rebuilt the archive, which a fetched dependency does not need: a coordinate is immutable, so
 # the only thing that can change it is the version in `package.hocon`, which is named below.
+#
+# **`--include-path pico_sdk=` is a different thing from the eighty-odd bare paths above it**, and
+# both are wanted. `pico2` v0.0.8 declares in its `package.hocon` that its C includes SDK, lwIP and
+# mbedTLS headers it does not carry, and a declaration is answered only by a path given under its
+# name -- a bare one deliberately does not, or a requirement would be satisfied by accident here and
+# go unenforced on a machine that had not happened to pass the right directory. So the named flag is
+# this project saying *where the SDK is*, and `SYSL_C_INCLUDES` is CMake saying *how it is laid out*.
+# Drop the named one and the build stops before clang runs, naming the package and the flag.
 add_custom_command(
     OUTPUT ${SYSL_ARCHIVE} ${SYSL_ARCHIVE}.h
     COMMAND ${SYSL_COMPILER} build-c ${CMAKE_CURRENT_SOURCE_DIR}/wifi --target thumb-freestanding-softfp
+            --include-path pico_sdk=${PICO_SDK_PATH}
             "$<$<BOOL:${SYSL_C_INCLUDES}>:--include-path;$<JOIN:${SYSL_C_INCLUDES},;--include-path;>>"
             "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}
